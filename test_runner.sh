@@ -1,0 +1,1 @@
+python3.5 eval_runner.py --data-dir='../data' --test-csv='./data_csv/val_data.txt' --model-dir='./model/new_model.pth.tar' --batch-size=256 --reshape-size=224 --classes=14

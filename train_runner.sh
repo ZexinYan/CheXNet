@@ -1,0 +1,1 @@
+python3.5 train_runner.py --data-dir='./data' --train-csv='./data_csv/unit_test.txt' --val-csv='./data_csv/unit_test.txt' --batch-size=2 --val-batch-size=2 --epochs=100 --lr=0.001 --reshape-size=256 --crop-size=224 --saved-dir='./models/new_model.pth.tar' --classes=14
