@@ -1,14 +1,14 @@
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from read_data import ChestXrayDataSet
-from densenet import DenseNet121
+from _models import *
 from torch.autograd import Variable
 from tqdm import tqdm
 import torch
 import numpy as np
 
 
-class ChexnetTester(object):
+class Tester(object):
     def __init__(self, args):
         self.args = args
         self.loader = self.__init_loader()
@@ -36,25 +36,52 @@ class ChexnetTester(object):
             else:
                 y_true = np.array(target.data)
                 y_pred = np.array(output.data)
+        print('Testing results -'
+              ' Total loss: {} -'
+              ' Training best loss: {}'.format(test_loss,
+                                               torch.load('./models/m-{}.pth.tar'
+                                                          .format(self.args.weight_dir))['best_loss']))
         self.__save_array(y_true, 'y_true')
         self.__save_array(y_pred, 'y_pred')
 
     def __load_model(self):
-        model = DenseNet121(self.args.classes)
-        # model = torch.nn.DataParallel(model).cuda()
-
-        model.load_state_dict(torch.load(self.args.model_dir)['state_dict'])
+        if self.args.model == 'VGG19':
+            model = VGG19(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet121':
+            model = DenseNet121(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet161':
+            model = DenseNet161(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet169':
+            model = DenseNet169(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet201':
+            model = DenseNet201(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'CheXNet':
+            model = CheXNet(classes=self.args.classes)
+        elif self.args.model == 'ResNet18':
+            model = ResNet18(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet34':
+            model = ResNet34(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet50':
+            model = ResNet50(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet101':
+            model = ResNet101(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet152':
+            model = ResNet152(pretrained=self.args.pretrained, classes=self.args.classes)
+        else:
+            model = CheXNet(classes=self.args.classes)
 
         if self.args.cuda:
-            model = model.cuda()
+            model = torch.nn.DataParallel(model).cuda()
+
+        model.load_state_dict(torch.load('./models/m-{}.pth.tar'.format(self.args.weight_dir))['state_dict'])
         return model
 
     def __init_transform(self):
-        normalize = transforms.Normalize([0.485, 0.456, 0.406],
-                                         [0.229, 0.224, 0.225])
-        transform_list = [transforms.Resize(self.args.reshape_size),
+        transform_list = [transforms.Resize(224),
+                          transforms.RandomCrop(224),
                           transforms.ToTensor(),
-                          normalize]
+                          transforms.Normalize([0.485, 0.456, 0.406],
+                                               [0.229, 0.224, 0.225])]
         return transforms.Compose(transform_list)
 
     def __init_loader(self):
@@ -71,4 +98,4 @@ class ChexnetTester(object):
         return torch.nn.BCELoss(size_average=True)
 
     def __save_array(self, array, name):
-        np.savez(array, '{}.npz'.format(name))
+        np.savez('./results/{}_{}.npz'.format(self.args.weight_dir, name), array)

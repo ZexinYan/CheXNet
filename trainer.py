@@ -2,25 +2,26 @@ import torch
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from densenet import DenseNet121
+from _models import *
 from read_data import ChestXrayDataSet
 from torch.autograd import Variable
 import numpy as np
 import callbacks
 from tqdm import tqdm
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import time
 
 
-class ChexnetTrainer(object):
+class Trainer(object):
     def __init__(self, args):
         self.args = args
-        self.lossMin = 10000
         self.model = self.__load_model()
         self.train_loader, self.val_loader = self.__init_loader()
         self.callbacks = self.__init_callback()
         self.optimizer = self.__init_optimizer()
         self.scheduler = self.__init_scheduler()
         self.loss = self.__init_loss()
+        self.loss_val = self.__init_min_loss()
 
     def train(self):
         self.callbacks.on_train_begin()
@@ -58,11 +59,11 @@ class ChexnetTrainer(object):
             data, target = Variable(data, volatile=True), Variable(target)
             output = self.model(data)
             loss_val += self.loss(output, target)
-        loss_min = self.__save_model(loss_val, epoch)
+        loss_min = self.__save_model(loss_val.data[0], epoch)
         epoch_logs = {'val_loss': np.array(loss_val.data)}
         self.callbacks.on_epoch_end(epoch=epoch, logs=epoch_logs)
         progress_bar.write('Epoch: {} - validation results - '
-                           'Average val_loss: {:.4f} '
+                           'Total val_loss: {:.4f} '
                            '- Min val_loss: {} '
                            '- Learning rate: {}'.format(epoch,
                                                         loss_val.data[0],
@@ -89,13 +90,37 @@ class ChexnetTrainer(object):
         return train_loader, val_loader
 
     def __load_model(self):
-        model = DenseNet121(classes=self.args.classes)
-        model = torch.nn.DataParallel(model).cuda()
-        if self.args.model_dir:
-            model.load_state_dict(torch.load(self.args.model_dir))
+        if self.args.model == 'VGG19':
+            model = VGG19(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet121':
+            model = DenseNet121(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet161':
+            model = DenseNet161(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet169':
+            model = DenseNet169(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'DenseNet201':
+            model = DenseNet201(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'CheXNet':
+            model = CheXNet(classes=self.args.classes)
+        elif self.args.model == 'ResNet18':
+            model = ResNet18(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet34':
+            model = ResNet34(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet50':
+            model = ResNet50(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet101':
+            model = ResNet101(pretrained=self.args.pretrained, classes=self.args.classes)
+        elif self.args.model == 'ResNet152':
+            model = ResNet152(pretrained=self.args.pretrained, classes=self.args.classes)
+        else:
+            model = DenseNet121(pretrained=self.args.pretrained, classes=self.args.classes)
 
         if self.args.cuda:
-            model = model.cuda()
+            model = torch.nn.DataParallel(model).cuda()
+
+        if self.args.weight_dir:
+            model.load_state_dict(torch.load(self.args.weight_dir)['state_dict'])
+        print("Load {} Model".format(self.args.model))
         return model
 
     def __init_callback(self):
@@ -109,14 +134,13 @@ class ChexnetTrainer(object):
         callback_list = callbacks.CallbackList(
             [callbacks.BaseLogger(),
              callbacks.TQDMCallback(),
-             # callbacks.ModelCheckpoint(filepath=self.args.saved_dir)
              ])
         callback_list.set_params(callback_params)
         callback_list.set_model(self.model)
         return callback_list
 
     def __init_optimizer(self):
-        return optim.Adam(params=self.model.parameters(), lr=self.args.lr)
+        return optim.Adam(params=self.model.parameters(), lr=self.args.lr, eps=1e-08, weight_decay=1e-5)
 
     def __init_transform(self):
         transform_list = [transforms.Resize(self.args.reshape_size),
@@ -137,6 +161,20 @@ class ChexnetTrainer(object):
     def __save_model(self, val_loss, epoch_id):
         if val_loss < self.lossMin:
             self.lossMin = val_loss
-            torch.save({'epoch': epoch_id + 1, 'state_dict': self.model.state_dict(), 'best_loss': self.lossMin,
-                        'optimizer': self.optimizer.state_dict()}, 'm-' + self.args.saved_dir + '.pth.tar')
+            file_name = './models/m-{}-{}.pth.tar'.format(self.__get_date(),
+                                                          self.args.model)
+            torch.save({'epoch': epoch_id + 1,
+                        'state_dict': self.model.state_dict(),
+                        'best_loss': self.lossMin,
+                        'optimizer': self.optimizer.state_dict()},
+                       file_name)
         return self.lossMin
+
+    def __get_date(self):
+        return str(time.strftime('%Y%m%d', time.gmtime()))
+
+    def __init_min_loss(self):
+        loss_val = 100000
+        if self.args.weight_dir:
+            loss_val = torch.load(self.args.weight_dir)['best_loss']
+        return loss_val
