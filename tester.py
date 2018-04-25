@@ -1,11 +1,11 @@
-from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
-from read_data import ChestXrayDataSet
-from _models import *
-from torch.autograd import Variable
-from tqdm import tqdm
-import torch
 import numpy as np
+import torchvision.transforms as transforms
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from utils._models import *
+from utils.read_data import ChestXrayDataSet
 
 
 class Tester(object):
@@ -36,11 +36,6 @@ class Tester(object):
             else:
                 y_true = np.array(target.data)
                 y_pred = np.array(output.data)
-        print('Testing results -'
-              ' Total loss: {} -'
-              ' Training best loss: {}'.format(test_loss,
-                                               torch.load('./models/m-{}.pth.tar'
-                                                          .format(self.args.weight_dir))['best_loss']))
         self.__save_array(y_true, 'y_true')
         self.__save_array(y_pred, 'y_pred')
 
@@ -56,7 +51,7 @@ class Tester(object):
         elif self.args.model == 'DenseNet201':
             model = DenseNet201(pretrained=self.args.pretrained, classes=self.args.classes)
         elif self.args.model == 'CheXNet':
-            model = CheXNet(classes=self.args.classes)
+            model = CheXNet()
         elif self.args.model == 'ResNet18':
             model = ResNet18(pretrained=self.args.pretrained, classes=self.args.classes)
         elif self.args.model == 'ResNet34':
@@ -68,12 +63,12 @@ class Tester(object):
         elif self.args.model == 'ResNet152':
             model = ResNet152(pretrained=self.args.pretrained, classes=self.args.classes)
         else:
-            model = CheXNet(classes=self.args.classes)
+            model = CheXNet()
 
         if self.args.cuda:
             model = torch.nn.DataParallel(model).cuda()
 
-        model.load_state_dict(torch.load('./models/m-{}.pth.tar'.format(self.args.weight_dir))['state_dict'])
+        # model.load_state_dict(torch.load('./models/m-{}.pth.tar'.format(self.args.weight_dir))['state_dict'])
         return model
 
     def __init_transform(self):
@@ -98,4 +93,4 @@ class Tester(object):
         return torch.nn.BCELoss(size_average=True)
 
     def __save_array(self, array, name):
-        np.savez('./results/{}_{}.npz'.format(self.args.weight_dir, name), array)
+        np.savez('./result/{}_{}.npz'.format(self.args.weight_dir, name), array)

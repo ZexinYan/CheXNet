@@ -1,15 +1,16 @@
-import torch
+import time
+
+import numpy as np
 import torch.optim as optim
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-from _models import *
-from read_data import ChestXrayDataSet
 from torch.autograd import Variable
-import numpy as np
-import callbacks
-from tqdm import tqdm
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-import time
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from utils import callbacks
+from utils._models import *
+from utils.read_data import ChestXrayDataSet
 
 
 class Trainer(object):

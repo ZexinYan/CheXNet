@@ -1,0 +1,1 @@
+python predict.py --model='Cdir='data/HosptialData' --weight-dir='CheXNet' --batch-size=256 --classes=14heXNet' --data-

@@ -1,0 +1,1 @@
+python test_runner.py --model='CheXNet' --data-dir='medical_reports_data/data' --test-csv='medical_reports_data/data.txt' --weight-dir='medical' --batch-size=256 --classes=14
